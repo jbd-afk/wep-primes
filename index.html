@@ -27,7 +27,7 @@ nav button{border:1px solid #e2e8f0;background:#fff;color:#475569;padding:.4rem 
 nav button.on{background:#4f46e5;color:#fff;border-color:#4f46e5}
 main{max-width:640px;margin:0 auto;padding:1rem;display:grid;gap:.7rem}
 .card{background:#fff;border:1px solid #f1f5f9;border-radius:1rem;padding:1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.card h3{font-size:.95rem;margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.card h3{font-size:.95rem;margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap}
 .hint{font-size:.75rem;color:#64748b;padding:0 .25rem}
 table{width:100%;border-collapse:collapse;font-size:.85rem}
 th{font-size:.65rem;text-transform:uppercase;color:#94a3b8;text-align:left;padding:.3rem 0}
@@ -35,9 +35,6 @@ td{border-top:1px solid #f1f5f9;padding:.45rem 0;vertical-align:middle}
 select,input{font-size:.85rem;border:1px solid #e2e8f0;background:#f8fafc;border-radius:.5rem;padding:.4rem .5rem;font-family:inherit;max-width:130px}
 input[type=checkbox]{max-width:none}
 input[type=url],input[type=password],input[type=date],input[type=number]{max-width:220px}
-.row{display:flex;align-items:flex-start;gap:.6rem;padding:.3rem 0;cursor:pointer;font-size:.85rem}
-.row input{margin-top:.15rem;accent-color:#4f46e5}
-.done{color:#94a3b8;text-decoration:line-through}
 .chip{display:inline-block;font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:99px;white-space:nowrap}
 .chip.f{background:#d1fae5;color:#047857}.chip.p{background:#e0e7ff;color:#4338ca}
 .add{width:100%;padding:.65rem;border:2px dashed #a5b4fc;background:none;color:#4f46e5;border-radius:.75rem;font-size:.85rem;cursor:pointer;font-weight:600}
@@ -47,10 +44,12 @@ input[type=url],input[type=password],input[type=date],input[type=number]{max-wid
 .warn{background:#fffbeb;border-color:#fde68a}
 .warn h3{color:#b45309;font-size:.85rem}
 .warn li{font-size:.75rem;color:#475569;margin:.25rem 0 .25rem 1rem}
+.alert{background:#fef2f2;border-color:#fecaca}
+.alert h3{color:#b91c1c;font-size:.85rem}
+.alert .task{font-size:.8rem;color:#475569}
 .kv{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;text-align:center}
 .kv b{font-size:1.1rem;display:block}
 label{display:block;font-size:.85rem;font-weight:600;margin:.8rem 0 .2rem}
-label.row{display:flex;font-weight:400;margin:0}
 .small{font-size:.7rem;color:#94a3b8;margin-top:.75rem}
 .sync{font-size:.75rem;padding:.3rem .6rem;border-radius:.5rem;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569}
 .sync.ok{background:#d1fae5;color:#047857;border-color:#a7f3d0}
@@ -64,6 +63,16 @@ label.row{display:flex;font-weight:400;margin:0}
 .detail li{font-size:.75rem;color:#475569;margin:.2rem 0 .2rem 1rem}
 .updated{font-size:.65rem;color:#94a3b8}
 .bold{font-weight:700;color:#334155}
+.acct{border:1px solid #eef2ff;border-radius:.75rem;padding:.7rem;margin-top:.6rem;background:#fafaff}
+.acct h4{font-size:.85rem;display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.3rem}
+.task{display:flex;align-items:flex-start;gap:.55rem;padding:.28rem 0;cursor:pointer;font-size:.82rem}
+.task input{margin-top:.1rem;accent-color:#4f46e5}
+.task .due{font-size:.7rem}
+.late{color:#b91c1c;font-weight:600}
+.soon{color:#b45309}
+.done{color:#94a3b8;text-decoration:line-through}
+.newacct{display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap;align-items:center}
+.newacct select,.newacct input{max-width:none;flex:1;min-width:110px}
 </style>
 </head>
 <body>
@@ -81,77 +90,127 @@ label.row{display:flex;font-weight:400;margin:0}
 <nav id="tabs"></nav>
 <main id="main"></main>
 <script>
-/* ====== WEP Primes PWA — fichier unique, autonome et intégrable ======
+/* ====== WEP Primes PWA — assistant d'accompagnement daté ======
    Intégration future dans la PWA WEP :
    - WepPrimes.mount(el)         rend l'app dans un élément de votre PWA
    - WepPrimes.get()/set(k,v)   accède à l'état (members, wepDate, …)
    - module.exports = WepPrimes si bundlé
-   Synchronisation groupe : régler "URL de sync" dans Réglages (ressource JSON
-   unique acceptant GET et PUT : une ligne de table Supabase, un bin JSONBin…).
-   Manifest inline en data-URI : installable sans fichier séparé. Pour le
-   hors-ligne complet, ajouter un service worker dans la PWA hôte. */
+   Modèle : membres → affiliations (banque + date d'ouverture) → tâches
+   générées automatiquement depuis les conditions de chaque banque, avec
+   échéances calculées. Alerte tant que la tâche n'est pas cochée.
+   Synchronisation groupe : régler "URL de sync" dans Réglages. */
 
 const OFFERS_UPDATED = "17 novembre 2026";
 
-const STEPS = [
-  ["eligibility","Éligibilité vérifiée (nouveau client de la banque)",0],
-  ["link","Lien/code de parrainage utilisé à l'ouverture (non rattrapable)",0],
-  ["kyc","Compte ouvert (KYC fait, ~30 min)",0],
-  ["deposit","Premier dépôt effectué (montant mini dans la fiche offre)",7],
-  ["conditions","Conditions de la prime tenues (paiements/mois, durée…)",90],
-  ["fees","Anti-frais vérifié : aucun frais d'inactivité ou de tenue en cours",0],
-  ["prime","Prime reçue ✅",90],
-  ["pot","Participation versée à la cagnotte",120],
-  ["zero","Solde remis à zéro avant clôture",0],
-  ["closed","Compte clôturé sans frais (après la période imposée)",120],
-];
 const BANKS = [
   {name:"BoursoBank",f:220,p:150,updated:"17/11/2026",
+   cfg:{depositDays:30,depositLabel:"Premier versement ≥ 300 €",payMonths:3,payLabel:"1 paiement carte ce mois-ci",moveDays:30,moveLabel:"Bonus EasyMove : activer + 1 transfert",primeDays:100,closeDays:100},
    eligibility:["Nouveau client uniquement : jamais eu de compte BoursoBank/Boursorama, même ancien","Majeur, résident en France, RIB français ou UE","Compte à titre personnel uniquement"],
    prime:["Code parrain obligatoire à l'inscription : IMPOSSIBLE à ajouter après validation du dossier","Premier versement d'au moins 300 € pendant l'inscription ou dans les 30 jours","Utiliser la carte au moins 1 fois par mois pendant 3 mois : chaque mois débloque une tranche de prime","Bonus EasyMove (+50 €) : activer la mobilité bancaire et effectuer 1 transfert, dans le mois suivant l'ouverture"],
    fees:["Carte gratuite seulement si ≥ 1 paiement par mois, sinon frais d'inactivité (~5 €/mois)","Retraits hors zone euro payants après le 1er par mois","Astuce : programmer un prélèvement automatique (ex. abonnement) dès l'ouverture"],
    close:["Ne pas fermer avant les 3 mois d'utilisation : les tranches restantes seraient perdues","Une prime déjà versée peut être reprise si fermeture trop précoce","Remettre le solde à zéro avant de demander la clôture"]},
   {name:"Hello bank!",f:300,p:120,updated:"17/11/2026",
+   cfg:{depositDays:15,depositLabel:"Versement initial (montant selon l'offre)",payMonths:3,payLabel:"Paiements/virements du palier en cours",primeDays:60,closeDays:90},
    eligibility:["Nouveau client uniquement : jamais eu de compte Hello bank!","L'ouverture passe par l'invitation d'un proche déjà client","Majeur, résident en France"],
    prime:["Prime dégressive par paliers d'usage (versement initial, virements réguliers, paiements carte) : lire le détail de l'offre en cours","Prime versée dans un délai d'environ 20 jours après ouverture","Vérifier si l'offre exige un virement régulier type salaire"],
    fees:["Compte gratuit sous conditions d'usage : vérifier le nombre de paiements minimum","Certains services annexes payants : ne rien activer en option"],
    close:["Ne pas fermer avant réception complète de la prime et fin des paliers","Clôture gratuite à demander depuis l'app ou par écrit","Solde à zéro avant clôture"]},
   {name:"Fortuneo",f:130,p:110,updated:"17/11/2026",
+   cfg:{depositDays:30,depositLabel:"Premier virement (montant selon l'offre)",payMonths:2,payLabel:"Paiements carte du mois",primeDays:60,closeDays:90},
    eligibility:["Nouveau client uniquement : jamais eu de compte Fortuneo","Majeur, résident en France","Conditions de revenus selon la carte choisie"],
    prime:["Utiliser le lien de parrainage à l'ouverture","Premier virement à effectuer pour débloquer la prime","Prime versée après validation, sous plusieurs semaines"],
    fees:["Carte gratuite sous condition d'utilisation mensuelle : vérifier le seuil exact","Sinon frais de tenue de compte : programmer un paiement automatique"],
    close:["Attendre la fin de la période de condition de la prime avant toute clôture","Solde à zéro, clôture par message sécurisé depuis l'espace client"]},
   {name:"Monabanq",f:130,p:50,updated:"17/11/2026",
+   cfg:{depositDays:30,depositLabel:"Premier virement (montant selon l'offre)",payMonths:2,payLabel:"Paiements carte du mois",primeDays:60,closeDays:90},
    eligibility:["Nouveau client uniquement","Majeur, résident en France","Sans condition de revenus"],
    prime:["Lien de parrainage à l'ouverture","Premier virement à effectuer (montant selon l'offre en cours)","Prime versée après quelques semaines"],
    fees:["Carte Standard payante (~3 €/mois) sauf usage suffisant : vérifier les seuils","Frais d'inactivité possibles : garder un paiement mensuel"],
    close:["Ne pas fermer avant réception de la prime","Solde à zéro, clôture depuis l'app ou par courrier"]},
   {name:"Trade Republic",f:0,p:200,updated:"17/11/2026",
+   cfg:{depositDays:30,depositLabel:"Dépôt initial + ordre à exécuter (lire l'offre)",payMonths:0,primeDays:60,closeDays:90},
    eligibility:["Nouveau client uniquement","Attention : c'est un compte-titres (courtier), pas un compte courant","Fiscalité des plus-values à déclarer si investissement"],
    prime:["L'offre type : dépôt initial + exécution d'ordres dans un délai donné (lire l'offre exacte)","Prime créditée en titres ou espèces selon les campagnes"],
    fees:["Aucun frais de base mais risque de marché si l'argent reste investi","Retirer les sommes avant clôture : vente + virement vers la banque"],
    close:["Clôture possible après retrait complet des titres et espèces","Penser à l'imposition des éventuelles plus-values"]},
 ];
-const KEY = "wep-primes-v2";
-const emptySteps = () => Object.fromEntries(STEPS.map(s=>[s[0],false]));
-const DEMO = [
-  {id:"m1",name:"Jean-Baptiste",bank:"Hello bank!",sponsor:"",steps:{...emptySteps(),eligibility:true,link:true,kyc:true,deposit:true}},
-  {id:"m2",name:"WEPien 2",bank:"BoursoBank",sponsor:"Jean-Baptiste",steps:{...emptySteps(),eligibility:true,link:true,kyc:true}},
-  {id:"m3",name:"WEPien 3",bank:"Fortuneo",sponsor:"Jean-Baptiste",steps:emptySteps()},
-];
-const defaultState = () => ({members:DEMO,wepDate:"",costPerHead:200,mode:"cagnotte",syncUrl:"",syncKey:"",lastSync:null,selBank:""});
+const KEY = "wep-primes-v3";
+const defaultState = () => ({members:[
+  {id:"m1",name:"Jean-Baptiste",accounts:[
+    {id:"a1",bank:"BoursoBank",openDate:"2026-11-10",done:{deposit:true,pay1:true},feesLast:"2026-11-10"},
+  ]},
+  {id:"m2",name:"WEPien 2",accounts:[
+    {id:"a2",bank:"Hello bank!",openDate:"2026-11-06",done:{},feesLast:""},
+  ]},
+  {id:"m3",name:"WEPien 3",accounts:[]},
+],wepDate:"",costPerHead:200,mode:"cagnotte",syncUrl:"",syncKey:"",lastSync:null,selBank:""});
 
 let state, tab="suivi";
-try{ state = JSON.parse(localStorage.getItem(KEY)) || defaultState(); }catch(e){ state = defaultState(); }
+try{
+  const raw = JSON.parse(localStorage.getItem(KEY));
+  state = raw && raw.members ? raw : defaultState();
+}catch(e){ state = defaultState(); }
 const bankOf = n => BANKS.find(b=>b.name===n);
 const save = () => { try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){} };
 
-function setMember(id,patch){ state.members=state.members.map(m=>m.id===id?{...m,...patch}:m); save(); render(); }
-function toggleStep(id,sid){ state.members=state.members.map(m=>{ if(m.id!==id) return m; return {...m,steps:{...m.steps,[sid]:!m.steps[sid]}};}); save(); render(); }
-function selectBank(n){ state.selBank = state.selBank===n?"":n; save(); render(); }
+/* ===== Tâches générées par affiliation ===== */
+const DAY = 864e5;
+function addDays(dstr,n){ if(!dstr) return ""; const d=new Date(dstr); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function daysBetween(a,b){ return Math.round((new Date(b)-new Date(a))/DAY); }
+function fmt(dstr){ if(!dstr) return "date ?"; const d=new Date(dstr); return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"}); }
+
+function accountTasks(m,a){
+  const b = bankOf(a.bank); if(!b) return [];
+  const c = b.cfg, t = [];
+  if(c.depositDays) t.push({id:"deposit",label:c.depositLabel,due:addDays(a.openDate,c.depositDays),done:!!a.done.deposit});
+  if(c.moveDays)    t.push({id:"move",label:c.moveLabel,due:addDays(a.openDate,c.moveDays),done:!!a.done.move});
+  for(let i=1;i<=(c.payMonths||0);i++){
+    t.push({id:"pay"+i,label:c.payLabel+" ("+i+"/"+c.payMonths+")",due:addDays(a.openDate,30*i),done:!!a.done["pay"+i]});
+  }
+  t.push({id:"fees",label:"Vérifier aucun frais ce mois (1 paiement = carte gratuite)",due:a.feesLast?addDays(a.feesLast,30):(a.openDate?addDays(a.openDate,30):""),done:!!a.feesLast && daysBetween(addDays(a.feesLast,30),today())>7,recurring:true});
+  t.push({id:"prime",label:"Prime reçue ✅ ("+b.f+" €)",due:addDays(a.openDate,c.primeDays),done:!!a.done.prime});
+  if(state.mode==="cagnotte") t.push({id:"pot",label:"Participation versée à la cagnotte",due:addDays(a.openDate,c.primeDays+7),done:!!a.done.pot});
+  t.push({id:"zero",label:"Solde remis à zéro (avant clôture)",due:addDays(a.openDate,c.closeDays),done:!!a.done.zero});
+  t.push({id:"closed",label:"Compte clôturé sans frais (après la période imposée)",due:addDays(a.openDate,c.closeDays+10),done:!!a.done.closed});
+  return t;
+}
+function allTasks(){
+  const out=[];
+  state.members.forEach(m=>m.accounts.forEach(a=>{
+    accountTasks(m,a).forEach(t=>out.push({m,a,t}));
+  }));
+  return out;
+}
+function taskStatus(t){
+  if(t.done) return "ok";
+  if(!t.due) return "todo";
+  const d = daysBetween(today(), t.due);
+  if(d<0) return "late";
+  if(d<=7) return "soon";
+  return "todo";
+}
+function toggleTask(mid,aid,tid){
+  state.members.forEach(m=>{ if(m.id!==mid) return;
+    m.accounts.forEach(a=>{ if(a.id!==aid) return;
+      if(tid==="fees"){ a.feesLast = today(); }
+      else a.done = {...a.done,[tid]:!a.done[tid]};
+    });
+  });
+  save(); render();
+}
+function addAccount(mid,bank,openDate){
+  if(!bank||!openDate) return alert("Choisis une banque et une date d'ouverture.");
+  state.members.forEach(m=>{ if(m.id===mid) m.accounts.push({id:"a"+Date.now(),bank,openDate,done:{},feesLast:""}); });
+  save(); render();
+}
+function removeAccount(mid,aid){
+  state.members.forEach(m=>{ if(m.id===mid) m.accounts=m.accounts.filter(a=>a.id!==aid); });
+  save(); render();
+}
 function addMember(){
   const name=prompt("Prénom du WEPien ?"); if(!name) return;
-  state.members.push({id:"m"+Date.now(),name,bank:"",sponsor:"",steps:emptySteps()});
+  state.members.push({id:"m"+Date.now(),name,accounts:[]});
   save(); render();
 }
 function removeMember(id){ state.members=state.members.filter(m=>m.id!==id); save(); render(); }
@@ -181,60 +240,83 @@ function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;
 function ul(arr){ return "<ul>"+arr.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul>"; }
 
 function render(){
-  const primes=state.members.reduce((s,m)=>m.steps.prime&&bankOf(m.bank)?s+bankOf(m.bank).f:s,0);
-  const attendues=state.members.reduce((s,m)=>m.steps.kyc&&bankOf(m.bank)?s+bankOf(m.bank).f+bankOf(m.bank).p:s,0);
-  const target=state.members.length*state.costPerHead;
-  const pct=target?Math.min(100,Math.round(primes/target*100)):0;
+  const tasks = allTasks();
+  const primes = tasks.filter(x=>x.t.id==="prime"&&x.t.done).reduce((s,x)=>s+bankOf(x.a.bank).f,0);
+  const kycCount = state.members.reduce((s,m)=>s+m.accounts.length,0);
+  const attendues = state.members.reduce((s,m)=>s+m.accounts.reduce((s2,a)=>{const b=bankOf(a.bank);return b?s2+b.f+b.p:s2;},0),0);
+  const target = state.members.length*state.costPerHead;
+  const pct = target?Math.min(100,Math.round(primes/target*100)):0;
   document.getElementById("barL").textContent="Primes reçues : "+primes+" €";
   document.getElementById("barR").textContent="Objectif : "+target+" € ("+state.members.length+" × "+state.costPerHead+" €)";
   document.getElementById("fill").style.width=pct+"%";
   const cd=document.getElementById("countdown");
-  if(state.wepDate){ const d=Math.ceil((new Date(state.wepDate)-Date.now())/864e5);
+  if(state.wepDate){ const d=Math.ceil((new Date(state.wepDate)-Date.now())/DAY);
     cd.innerHTML=d>0?"<b>J-"+d+"</b><span>avant le WEP</span>":"<b>C'est le WEP !</b><span>🎉</span>";
   } else cd.innerHTML="";
 
   const tabs=[["suivi","Mes démarches"],["groupe","Le groupe"],["banques","Les offres"],["reglages","Réglages"]];
+  const alerts = tasks.filter(x=>["late","soon"].includes(taskStatus(x.t)));
   document.getElementById("tabs").innerHTML=tabs.map(([id,l])=>
-    "<button class='"+(tab===id?"on":"")+"' onclick='WepPrimes.setTab(\""+id+"\")'>"+l+"</button>").join("");
+    "<button class='"+(tab===id?"on":"")+"' onclick='WepPrimes.setTab(\""+id+"\")'>"+l+(id==="suivi"&&alerts.length?" ⏰ "+alerts.length:"")+"</button>").join("");
 
   const M=document.getElementById("main"); let h="";
   if(tab==="suivi"){
-    h+="<div class='card warn'><h3>🛡️ Garde-fous : zéro frais, zéro compte oublié</h3><ul>"
-      +"<li><b>Programme un paiement automatique dès l'ouverture</b> (un abonnement quelconque) : la plupart des cartes sont gratuites seulement si tu paies au moins 1 fois par mois, sinon frais d'inactivité.</li>"
-      +"<li><b>Ne ferme jamais avant la fin de la période imposée</b> : tranches de prime perdues ou prime reprise. La fiche de chaque offre (onglet Les offres) indique la durée.</li>"
-      +"<li><b>Retire tout avant de clôturer</b> : solde à zéro, puis demande de clôture écrite, et vérifie qu'elle est bien effective.</li>"
-      +"<li><b>Ne laisse pas de compte inactif payer des frais</b> : si tu ne fermes pas, l'étape « anti-frais » reste à vérifier chaque mois.</li></ul></div>";
-    state.members.forEach(m=>{
-      const done=STEPS.filter(s=>m.steps[s[0]]).length;
-      h+="<div class='card'><h3>"+esc(m.name)+"<span class='hint'>"+done+"/"+STEPS.length+" étapes</span></h3>";
-      STEPS.forEach(([id,l,d])=>{
-        h+="<label class='row'><input type='checkbox' "+(m.steps[id]?"checked":"")+" onchange='WepPrimes.toggle(\""+m.id+"\",\""+id+"\")'>"
-          +"<span class='"+(m.steps[id]?"done":"")+"'>"+esc(l)+(d>0?" <span style='color:#94a3b8'>· sous "+d+" j max</span>":"")+"</span></label>";
+    if(alerts.length){
+      h+="<div class='card alert'><h3>⏰ Alertes ("+alerts.length+") — coche quand c'est fait pour la faire disparaître</h3>";
+      alerts.sort((x,y)=>x.t.due<y.t.due?-1:1).forEach(x=>{
+        const st=taskStatus(x.t);
+        h+="<label class='task'><input type='checkbox' onchange='WepPrimes.task(\""+x.m.id+"\",\""+x.a.id+"\",\""+x.t.id+"\")'>"
+          +"<span><b>"+esc(x.m.name)+" · "+esc(x.a.bank)+"</b> : "+esc(x.t.label)
+          +" <span class='due "+st+"'>("+(st==="late"?"EN RETARD depuis le ":"prévu avant le ")+fmt(x.t.due)+")</span></span></label>";
       });
+      h+="</div>";
+    }
+    h+="<div class='card warn'><h3>🛡️ Garde-fous : zéro frais, zéro compte oublié</h3><ul>"
+      +"<li><b>Programme un paiement automatique dès l'ouverture</b> : la plupart des cartes sont gratuites seulement si tu paies au moins 1 fois par mois, sinon frais d'inactivité.</li>"
+      +"<li><b>Ne ferme jamais avant la fin de la période imposée</b> : la fiche de chaque offre (onglet Les offres) indique la durée.</li>"
+      +"<li><b>Retire tout avant de clôturer</b> : solde à zéro, clôture écrite, vérifie qu'elle est effective.</li></ul></div>";
+    state.members.forEach(m=>{
+      h+="<div class='card'><h3>"+esc(m.name)+"<button class='del' onclick='WepPrimes.remove(\""+m.id+"\")'>✕</button></h3>";
+      if(m.accounts.length===0) h+="<p class='small' style='margin:0'>Aucune affiliation enregistrée.</p>";
+      m.accounts.forEach(a=>{
+        const b=bankOf(a.bank);
+        const ts=accountTasks(m,a);
+        const doneN=ts.filter(t=>t.done).length;
+        h+="<div class='acct'><h4>🏦 "+esc(a.bank)+" — ouvert le "+fmt(a.openDate)+"<span class='hint'>"+doneN+"/"+ts.length+" ✓<button class='del' onclick='WepPrimes.removeAccount(\""+m.id+"\",\""+a.id+"\")'>✕</button></span></h4>";
+        ts.forEach(t=>{
+          const st=taskStatus(t);
+          const dueTxt = t.recurring ? "chaque 30 j" : (st==="late"?"EN RETARD depuis le ":st==="soon"?"prévu avant le ":"pour le ")+fmt(t.due);
+          h+="<label class='task'><input type='checkbox' "+(t.done?"checked":"")+" onchange='WepPrimes.task(\""+m.id+"\",\""+a.id+"\",\""+t.id+"\")'>"
+            +"<span class='"+(t.done?"done":"")+"'>"+esc(t.label)+" <span class='due "+(st==="late"?"late":st==="soon"?"soon":"")+"'>"+dueTxt+"</span></span></label>";
+        });
+        h+="</div>";
+      });
+      h+="<div class='newacct'><select id='nb_"+m.id+"'><option value=''>Banque…</option>"+BANKS.map(b2=>"<option>"+b2.name+"</option>").join("")+"</select>"
+        +"<input type='date' id='nd_"+m.id+"'>"
+        +"<button class='btn' onclick='WepPrimes.addAccount(\""+m.id+"\")'>+ Ajouter</button></div>";
       h+="</div>";
     });
     h+="<button class='add' onclick='WepPrimes.add()'>+ Ajouter un WEPien</button>";
   }
   if(tab==="groupe"){
-    h+="<div class='card'><h3>Avancement du groupe<button class='btn' onclick='WepPrimes.add()'>+ Ajouter</button></h3><table><tr><th>WEPien</th><th>Banque</th><th>Parrain</th><th>Prime</th><th></th></tr>";
-    state.members.forEach(m=>{ const b=bankOf(m.bank);
-      h+="<tr><td><b>"+esc(m.name)+"</b></td><td><select onchange='WepPrimes.setMember(\""+m.id+"\",\"bank\",this.value)'><option value=''>—</option>"
-        +BANKS.map(b2=>"<option "+(m.bank===b2.name?"selected":"")+">"+b2.name+"</option>").join("")+"</select></td><td><select onchange='WepPrimes.setMember(\""+m.id+"\",\"sponsor\",this.value)'><option value=''>—</option>"
-        +state.members.map(o=>o.id!==m.id?"<option "+(m.sponsor===o.name?"selected":"")+">"+esc(o.name)+"</option>":"").join("")+"</select></td>"
-        +"<td style='text-align:right'><b>"+(m.steps.prime&&b?b.f+" €":"—")+"</b></td>"
+    h+="<div class='card'><h3>Avancement du groupe<button class='btn' onclick='WepPrimes.add()'>+ WEPien</button></h3><table><tr><th>WEPien</th><th>Affiliations</th><th>Primes reçues</th></tr>";
+    state.members.forEach(m=>{
+      const got = m.accounts.reduce((s,a)=>a.done.prime&&bankOf(a.bank)?s+bankOf(a.bank).f:s,0);
+      h+="<tr><td><b>"+esc(m.name)+"</b></td><td>"
+        +(m.accounts.map(a=>esc(a.bank)+" <span class='updated'>("+fmt(a.openDate)+")</span>").join("<br>")||"—")
+        +"</td><td style='text-align:right'><b>"+(got?got+" €":"—")+"</b></td>"
         +"<td><button class='del' onclick='WepPrimes.remove(\""+m.id+"\")'>✕</button></td></tr>";
     });
-    h+="</table></div>";
+    h+="</table><p class='small'>"+kycCount+" compte(s) ouvert(s) au total. Répartissez les parrains : chaque parrain est généralement plafonné entre 5 et 15 filleuls/an.</p></div>";
     h+="<div class='card'><h3>Cagnotte</h3><div class='kv'>"
       +"<div style='background:#ecfdf5'><b style='color:#059669'>"+primes+" €</b><span class='hint'>reçues</span></div>"
       +"<div style='background:#eef2ff'><b style='color:#4f46e5'>"+attendues+" €</b><span class='hint'>attendues</span></div>"
-      +"<div style='background:#fffbeb'><b style='color:#d97706'>"+target+" €</b><span class='hint'>coût du week-end</span></div></div>"
-      +"<p class='small'>Chaque parrain est généralement plafonné entre 5 et 15 filleuls/an : répartissez les parrains.</p></div>";
+      +"<div style='background:#fffbeb'><b style='color:#d97706'>"+target+" €</b><span class='hint'>coût du week-end</span></div></div></div>";
     h+="<div class='card'><h3>Sync groupe <span><button class='sync "+(state.lastSync?"ok":"")+"' onclick='WepPrimes.pull()'>⬇ Récupérer</button> <button class='sync "+(state.lastSync?"ok":"")+"' onclick='WepPrimes.push()'>⬆ Partager</button></span></h3>"
       +"<p class='small'>"+(state.lastSync?"Dernière sync : "+new Date(state.lastSync).toLocaleString("fr-FR"):"Pas encore synchronisé. Configure l'URL dans Réglages.")+"</p></div>";
   }
   if(tab==="banques"){
-    h+="<p class='hint'><span class='bold'>Dernière actualisation des offres : "+esc(OFFERS_UPDATED)+"</span> — clique sur une offre pour voir ses conditions détaillées et les pièges à éviter. Les offres changent souvent : revérifie toujours la page officielle juste avant d'ouvrir.</p>";
+    h+="<p class='hint'><span class='bold'>Dernière actualisation des offres : "+esc(OFFERS_UPDATED)+"</span> — clique sur une offre pour ses conditions détaillées. Revérifie toujours la page officielle juste avant d'ouvrir.</p>";
     BANKS.forEach(b=>{
       const open = state.selBank===b.name;
       h+="<div class='card offer "+(open?"open":"")+"' onclick='WepPrimes.select(\""+b.name+"\")'>"
@@ -261,7 +343,7 @@ function render(){
       +"<label>Que fait-on des primes ?</label><select onchange='WepPrimes.set(\"mode\",this.value)'><option value='cagnotte' "+(state.mode==="cagnotte"?"selected":"")+">Cagnotte commune</option><option value='perso' "+(state.mode==="perso"?"selected":"")+">Chacun garde sa prime</option></select>"
       +"<label>URL de sync groupe (ressource JSON, GET + PUT)</label><input type='url' placeholder='https://…' value='"+esc(state.syncUrl)+"' onchange='WepPrimes.set(\"syncUrl\",this.value)' style='width:100%;max-width:none'>"
       +"<label>Clé API (facultative, ex. clé anon Supabase)</label><input type='password' value='"+esc(state.syncKey)+"' onchange='WepPrimes.set(\"syncKey\",this.value)' style='width:100%;max-width:none'>"
-      +"<p class='small'>L'URL désigne une seule ressource JSON partagée (une ligne de table Supabase, un bin JSONBin…). « Partager » envoie l'état du groupe, « Récupérer » le télécharge. Chaque téléphone garde aussi sa copie locale hors ligne.</p>"
+      +"<p class='small'>« Partager » envoie l'état du groupe, « Récupérer » le télécharge sur un autre téléphone. Chaque téléphone garde sa copie locale hors ligne.</p>"
       +"<button class='del' style='margin-top:.8rem' onclick='WepPrimes.reset()'>Tout réinitialiser</button>"
       +"</div>";
     h+="<div class='card'><h3>Installer l'appli</h3><p class='small' style='margin:0'><b>Android/Chrome :</b> menu ⋮ → « Ajouter à l'écran d'accueil ».<br><b>iPhone/Safari :</b> Partager → « Sur l'écran d'accueil ».</p></div>";
@@ -275,9 +357,13 @@ const WepPrimes = {
   setTab(t){ tab=t; render(); },
   get(){ return state; },
   set(k,v){ state[k]=v; save(); render(); },
-  setMember(id,k,v){ setMember(id,{[k]:v}); },
-  select(n){ selectBank(n); },
-  toggle: toggleStep, add: addMember, remove: removeMember,
+  addAccount(mid){
+    const bank=document.getElementById("nb_"+mid).value;
+    const openDate=document.getElementById("nd_"+mid).value;
+    addAccount(mid,bank,openDate);
+  },
+  task: toggleTask, add: addMember, remove: removeMember,
+  removeAccount: removeAccount, select(n){ state.selBank=state.selBank===n?"":n; save(); render(); },
   push: pushSync, pull: pullSync,
   reset(){ if(confirm("Tout réinitialiser ?")){ state=defaultState(); save(); render(); } },
 };
