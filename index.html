@@ -54,6 +54,16 @@ label.row{display:flex;font-weight:400;margin:0}
 .small{font-size:.7rem;color:#94a3b8;margin-top:.75rem}
 .sync{font-size:.75rem;padding:.3rem .6rem;border-radius:.5rem;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569}
 .sync.ok{background:#d1fae5;color:#047857;border-color:#a7f3d0}
+.offer{cursor:pointer}
+.offer .chev{color:#94a3b8;font-size:.8rem;transition:transform .2s}
+.offer.open .chev{transform:rotate(90deg)}
+.detail{display:none;margin-top:.7rem;border-top:1px dashed #e2e8f0;padding-top:.7rem}
+.offer.open .detail{display:block}
+.detail h4{font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;margin:.6rem 0 .25rem}
+.detail h4.elig{color:#4338ca}.detail h4.prime{color:#047857}.detail h4.fees{color:#b45309}.detail h4.close{color:#be123c}
+.detail li{font-size:.75rem;color:#475569;margin:.2rem 0 .2rem 1rem}
+.updated{font-size:.65rem;color:#94a3b8}
+.bold{font-weight:700;color:#334155}
 </style>
 </head>
 <body>
@@ -81,30 +91,55 @@ label.row{display:flex;font-weight:400;margin:0}
    Manifest inline en data-URI : installable sans fichier séparé. Pour le
    hors-ligne complet, ajouter un service worker dans la PWA hôte. */
 
+const OFFERS_UPDATED = "17 novembre 2026";
+
 const STEPS = [
   ["eligibility","Éligibilité vérifiée (nouveau client de la banque)",0],
-  ["link","Lien de parrainage récupéré du bon parrain",0],
+  ["link","Lien/code de parrainage utilisé à l'ouverture (non rattrapable)",0],
   ["kyc","Compte ouvert (KYC fait, ~30 min)",0],
-  ["deposit","Premier dépôt effectué",7],
-  ["conditions","Conditions de la prime tenues (paiements / virements)",90],
+  ["deposit","Premier dépôt effectué (montant mini dans la fiche offre)",7],
+  ["conditions","Conditions de la prime tenues (paiements/mois, durée…)",90],
+  ["fees","Anti-frais vérifié : aucun frais d'inactivité ou de tenue en cours",0],
   ["prime","Prime reçue ✅",90],
   ["pot","Participation versée à la cagnotte",120],
+  ["zero","Solde remis à zéro avant clôture",0],
+  ["closed","Compte clôturé sans frais (après la période imposée)",120],
 ];
 const BANKS = [
-  {name:"BoursoBank",f:220,p:150,note:"Code promo souvent requis, dépôt 50-300 €"},
-  {name:"Hello bank!",f:300,p:120,note:"Doit être invité par un client existant"},
-  {name:"Fortuneo",f:130,p:110,note:"Conditions de revenus selon la carte"},
-  {name:"Monabanq",f:130,p:50,note:"Compte sans condition de revenus"},
-  {name:"Trade Republic",f:0,p:200,note:"Prime côté parrain uniquement"},
+  {name:"BoursoBank",f:220,p:150,updated:"17/11/2026",
+   eligibility:["Nouveau client uniquement : jamais eu de compte BoursoBank/Boursorama, même ancien","Majeur, résident en France, RIB français ou UE","Compte à titre personnel uniquement"],
+   prime:["Code parrain obligatoire à l'inscription : IMPOSSIBLE à ajouter après validation du dossier","Premier versement d'au moins 300 € pendant l'inscription ou dans les 30 jours","Utiliser la carte au moins 1 fois par mois pendant 3 mois : chaque mois débloque une tranche de prime","Bonus EasyMove (+50 €) : activer la mobilité bancaire et effectuer 1 transfert, dans le mois suivant l'ouverture"],
+   fees:["Carte gratuite seulement si ≥ 1 paiement par mois, sinon frais d'inactivité (~5 €/mois)","Retraits hors zone euro payants après le 1er par mois","Astuce : programmer un prélèvement automatique (ex. abonnement) dès l'ouverture"],
+   close:["Ne pas fermer avant les 3 mois d'utilisation : les tranches restantes seraient perdues","Une prime déjà versée peut être reprise si fermeture trop précoce","Remettre le solde à zéro avant de demander la clôture"]},
+  {name:"Hello bank!",f:300,p:120,updated:"17/11/2026",
+   eligibility:["Nouveau client uniquement : jamais eu de compte Hello bank!","L'ouverture passe par l'invitation d'un proche déjà client","Majeur, résident en France"],
+   prime:["Prime dégressive par paliers d'usage (versement initial, virements réguliers, paiements carte) : lire le détail de l'offre en cours","Prime versée dans un délai d'environ 20 jours après ouverture","Vérifier si l'offre exige un virement régulier type salaire"],
+   fees:["Compte gratuit sous conditions d'usage : vérifier le nombre de paiements minimum","Certains services annexes payants : ne rien activer en option"],
+   close:["Ne pas fermer avant réception complète de la prime et fin des paliers","Clôture gratuite à demander depuis l'app ou par écrit","Solde à zéro avant clôture"]},
+  {name:"Fortuneo",f:130,p:110,updated:"17/11/2026",
+   eligibility:["Nouveau client uniquement : jamais eu de compte Fortuneo","Majeur, résident en France","Conditions de revenus selon la carte choisie"],
+   prime:["Utiliser le lien de parrainage à l'ouverture","Premier virement à effectuer pour débloquer la prime","Prime versée après validation, sous plusieurs semaines"],
+   fees:["Carte gratuite sous condition d'utilisation mensuelle : vérifier le seuil exact","Sinon frais de tenue de compte : programmer un paiement automatique"],
+   close:["Attendre la fin de la période de condition de la prime avant toute clôture","Solde à zéro, clôture par message sécurisé depuis l'espace client"]},
+  {name:"Monabanq",f:130,p:50,updated:"17/11/2026",
+   eligibility:["Nouveau client uniquement","Majeur, résident en France","Sans condition de revenus"],
+   prime:["Lien de parrainage à l'ouverture","Premier virement à effectuer (montant selon l'offre en cours)","Prime versée après quelques semaines"],
+   fees:["Carte Standard payante (~3 €/mois) sauf usage suffisant : vérifier les seuils","Frais d'inactivité possibles : garder un paiement mensuel"],
+   close:["Ne pas fermer avant réception de la prime","Solde à zéro, clôture depuis l'app ou par courrier"]},
+  {name:"Trade Republic",f:0,p:200,updated:"17/11/2026",
+   eligibility:["Nouveau client uniquement","Attention : c'est un compte-titres (courtier), pas un compte courant","Fiscalité des plus-values à déclarer si investissement"],
+   prime:["L'offre type : dépôt initial + exécution d'ordres dans un délai donné (lire l'offre exacte)","Prime créditée en titres ou espèces selon les campagnes"],
+   fees:["Aucun frais de base mais risque de marché si l'argent reste investi","Retirer les sommes avant clôture : vente + virement vers la banque"],
+   close:["Clôture possible après retrait complet des titres et espèces","Penser à l'imposition des éventuelles plus-values"]},
 ];
-const KEY = "wep-primes-v1";
+const KEY = "wep-primes-v2";
 const emptySteps = () => Object.fromEntries(STEPS.map(s=>[s[0],false]));
 const DEMO = [
   {id:"m1",name:"Jean-Baptiste",bank:"Hello bank!",sponsor:"",steps:{...emptySteps(),eligibility:true,link:true,kyc:true,deposit:true}},
   {id:"m2",name:"WEPien 2",bank:"BoursoBank",sponsor:"Jean-Baptiste",steps:{...emptySteps(),eligibility:true,link:true,kyc:true}},
   {id:"m3",name:"WEPien 3",bank:"Fortuneo",sponsor:"Jean-Baptiste",steps:emptySteps()},
 ];
-const defaultState = () => ({members:DEMO,wepDate:"",costPerHead:200,mode:"cagnotte",syncUrl:"",syncKey:"",lastSync:null});
+const defaultState = () => ({members:DEMO,wepDate:"",costPerHead:200,mode:"cagnotte",syncUrl:"",syncKey:"",lastSync:null,selBank:""});
 
 let state, tab="suivi";
 try{ state = JSON.parse(localStorage.getItem(KEY)) || defaultState(); }catch(e){ state = defaultState(); }
@@ -113,6 +148,7 @@ const save = () => { try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e
 
 function setMember(id,patch){ state.members=state.members.map(m=>m.id===id?{...m,...patch}:m); save(); render(); }
 function toggleStep(id,sid){ state.members=state.members.map(m=>{ if(m.id!==id) return m; return {...m,steps:{...m.steps,[sid]:!m.steps[sid]}};}); save(); render(); }
+function selectBank(n){ state.selBank = state.selBank===n?"":n; save(); render(); }
 function addMember(){
   const name=prompt("Prénom du WEPien ?"); if(!name) return;
   state.members.push({id:"m"+Date.now(),name,bank:"",sponsor:"",steps:emptySteps()});
@@ -142,6 +178,7 @@ async function pullSync(){
 }
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function ul(arr){ return "<ul>"+arr.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul>"; }
 
 function render(){
   const primes=state.members.reduce((s,m)=>m.steps.prime&&bankOf(m.bank)?s+bankOf(m.bank).f:s,0);
@@ -162,7 +199,11 @@ function render(){
 
   const M=document.getElementById("main"); let h="";
   if(tab==="suivi"){
-    h+="<p class='hint'>Coche chaque étape. Les délais sont les maximums habituels : dépôt sous ~7 j, conditions sur 1 à 3 mois. Ne ferme pas le compte avant la fin de la période imposée.</p>";
+    h+="<div class='card warn'><h3>🛡️ Garde-fous : zéro frais, zéro compte oublié</h3><ul>"
+      +"<li><b>Programme un paiement automatique dès l'ouverture</b> (un abonnement quelconque) : la plupart des cartes sont gratuites seulement si tu paies au moins 1 fois par mois, sinon frais d'inactivité.</li>"
+      +"<li><b>Ne ferme jamais avant la fin de la période imposée</b> : tranches de prime perdues ou prime reprise. La fiche de chaque offre (onglet Les offres) indique la durée.</li>"
+      +"<li><b>Retire tout avant de clôturer</b> : solde à zéro, puis demande de clôture écrite, et vérifie qu'elle est bien effective.</li>"
+      +"<li><b>Ne laisse pas de compte inactif payer des frais</b> : si tu ne fermes pas, l'étape « anti-frais » reste à vérifier chaque mois.</li></ul></div>";
     state.members.forEach(m=>{
       const done=STEPS.filter(s=>m.steps[s[0]]).length;
       h+="<div class='card'><h3>"+esc(m.name)+"<span class='hint'>"+done+"/"+STEPS.length+" étapes</span></h3>";
@@ -193,13 +234,22 @@ function render(){
       +"<p class='small'>"+(state.lastSync?"Dernière sync : "+new Date(state.lastSync).toLocaleString("fr-FR"):"Pas encore synchronisé. Configure l'URL dans Réglages.")+"</p></div>";
   }
   if(tab==="banques"){
-    h+="<p class='hint'>Montants constatés en novembre 2026. Les offres évoluent : vérifie conditions et codes promo avant d'ouvrir.</p>";
+    h+="<p class='hint'><span class='bold'>Dernière actualisation des offres : "+esc(OFFERS_UPDATED)+"</span> — clique sur une offre pour voir ses conditions détaillées et les pièges à éviter. Les offres changent souvent : revérifie toujours la page officielle juste avant d'ouvrir.</p>";
     BANKS.forEach(b=>{
-      h+="<div class='card'><h3 style='flex-wrap:wrap'>"+esc(b.name)+"<span><span class='chip f'>Filleul "+b.f+" €</span> <span class='chip p'>Parrain "+b.p+" €</span></span></h3><p class='small' style='margin:0'>"+esc(b.note)+"</p></div>";
+      const open = state.selBank===b.name;
+      h+="<div class='card offer "+(open?"open":"")+"' onclick='WepPrimes.select(\""+b.name+"\")'>"
+        +"<h3 style='flex-wrap:wrap'>"+esc(b.name)+"<span style='white-space:nowrap'><span class='chip f'>Filleul "+b.f+" €</span> <span class='chip p'>Parrain "+b.p+" €</span> <span class='chev'>▸</span></span></h3>"
+        +"<div class='updated'>Fiche vérifiée le "+esc(b.updated)+" · "+(open?"clique pour replier":"clique pour les conditions")+"</div>"
+        +"<div class='detail'>"
+        +"<h4 class='elig'>Éligibilité</h4>"+ul(b.eligibility)
+        +"<h4 class='prime'>Pour débloquer la prime</h4>"+ul(b.prime)
+        +"<h4 class='fees'>Frais à éviter</h4>"+ul(b.fees)
+        +"<h4 class='close'>Avant de fermer le compte</h4>"+ul(b.close)
+        +"</div></div>";
     });
     h+="<div class='card warn'><h3>Règles d'or</h3><ul>"
       +"<li>Ouvre ton compte toi-même : jamais personne ne le fait à ta place.</li>"
-      +"<li>Passe bien par le lien de ton parrain, sinon pas de prime.</li>"
+      +"<li>Passe bien par le lien/le code de ton parrain dès l'inscription : c'est non rattrapable.</li>"
       +"<li>Ne ferme pas le compte avant la fin de la période imposée (retrait de prime possible).</li>"
       +"<li>Parrainage gratuit entre proches uniquement : pas de revente de codes.</li>"
       +"<li>Tu restes libre de ne pas participer.</li></ul></div>";
@@ -226,6 +276,7 @@ const WepPrimes = {
   get(){ return state; },
   set(k,v){ state[k]=v; save(); render(); },
   setMember(id,k,v){ setMember(id,{[k]:v}); },
+  select(n){ selectBank(n); },
   toggle: toggleStep, add: addMember, remove: removeMember,
   push: pushSync, pull: pullSync,
   reset(){ if(confirm("Tout réinitialiser ?")){ state=defaultState(); save(); render(); } },
