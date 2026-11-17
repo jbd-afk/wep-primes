@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WEP Primes">
+<title>WEP Primes</title>
+<link rel="manifest" href='data:application/manifest+json,{"name":"WEP Primes","short_name":"WEP Primes","start_url":".","display":"standalone","background_color":"%23f8fafc","theme_color":"%234f46e5","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%234f46e5%27/%3E%3Ctext x=%2750%27 y=%2768%27 font-size=%2750%27 text-anchor=%27middle%27%3E%F0%9F%8F%80%3C/text%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml","purpose":"any"}]}'>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f8fafc;color:#1e293b;padding-bottom:2rem}
+header{background:#4f46e5;color:#fff;padding:1.25rem 1rem .9rem;border-radius:0 0 1.5rem 1.5rem}
+header h1{font-size:1.25rem}
+header .sub{color:#c7d2fe;font-size:.8rem}
+.hd{max-width:640px;margin:0 auto;overflow:hidden}
+.j{float:right;text-align:right}
+.j b{font-size:1.5rem}
+.j span{display:block;color:#c7d2fe;font-size:.7rem}
+.bar{max-width:640px;margin:.7rem auto 0;font-size:.75rem;color:#e0e7ff;display:flex;justify-content:space-between}
+.track{height:10px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden;margin-top:4px}
+.fill{height:100%;background:#34d399;border-radius:99px;transition:width .4s}
+nav{max-width:640px;margin:1rem auto 0;padding:0 1rem;display:flex;gap:.4rem;flex-wrap:wrap}
+nav button{border:1px solid #e2e8f0;background:#fff;color:#475569;padding:.4rem .85rem;border-radius:99px;font-size:.85rem;cursor:pointer}
+nav button.on{background:#4f46e5;color:#fff;border-color:#4f46e5}
+main{max-width:640px;margin:0 auto;padding:1rem;display:grid;gap:.7rem}
+.card{background:#fff;border:1px solid #f1f5f9;border-radius:1rem;padding:1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card h3{font-size:.95rem;margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.hint{font-size:.75rem;color:#64748b;padding:0 .25rem}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{font-size:.65rem;text-transform:uppercase;color:#94a3b8;text-align:left;padding:.3rem 0}
+td{border-top:1px solid #f1f5f9;padding:.45rem 0;vertical-align:middle}
+select,input{font-size:.85rem;border:1px solid #e2e8f0;background:#f8fafc;border-radius:.5rem;padding:.4rem .5rem;font-family:inherit;max-width:130px}
+input[type=checkbox]{max-width:none}
+input[type=url],input[type=password],input[type=date],input[type=number]{max-width:220px}
+.row{display:flex;align-items:flex-start;gap:.6rem;padding:.3rem 0;cursor:pointer;font-size:.85rem}
+.row input{margin-top:.15rem;accent-color:#4f46e5}
+.done{color:#94a3b8;text-decoration:line-through}
+.chip{display:inline-block;font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:99px;white-space:nowrap}
+.chip.f{background:#d1fae5;color:#047857}.chip.p{background:#e0e7ff;color:#4338ca}
+.add{width:100%;padding:.65rem;border:2px dashed #a5b4fc;background:none;color:#4f46e5;border-radius:.75rem;font-size:.85rem;cursor:pointer;font-weight:600}
+.btn{background:#4f46e5;color:#fff;border:none;padding:.35rem .7rem;border-radius:.5rem;font-size:.75rem;cursor:pointer}
+.del{background:none;border:none;color:#cbd5e1;cursor:pointer;font-size:.85rem}
+.del:hover{color:#ef4444}
+.warn{background:#fffbeb;border-color:#fde68a}
+.warn h3{color:#b45309;font-size:.85rem}
+.warn li{font-size:.75rem;color:#475569;margin:.25rem 0 .25rem 1rem}
+.kv{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;text-align:center}
+.kv b{font-size:1.1rem;display:block}
+label{display:block;font-size:.85rem;font-weight:600;margin:.8rem 0 .2rem}
+label.row{display:flex;font-weight:400;margin:0}
+.small{font-size:.7rem;color:#94a3b8;margin-top:.75rem}
+.sync{font-size:.75rem;padding:.3rem .6rem;border-radius:.5rem;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569}
+.sync.ok{background:#d1fae5;color:#047857;border-color:#a7f3d0}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd">
+    <div class="j" id="countdown"></div>
+    <h1>🏀 WEP Primes</h1>
+    <div class="sub">Financer le week-end avec les primes de parrainage</div>
+  </div>
+  <div class="bar">
+    <span id="barL"></span><span id="barR"></span>
+  </div>
+  <div class="track"><div class="fill" id="fill"></div></div>
+</header>
+<nav id="tabs"></nav>
+<main id="main"></main>
+<script>
+/* ====== WEP Primes PWA — fichier unique, autonome et intégrable ======
+   Intégration future dans la PWA WEP :
+   - WepPrimes.mount(el)         rend l'app dans un élément de votre PWA
+   - WepPrimes.get()/set(k,v)   accède à l'état (members, wepDate, …)
+   - module.exports = WepPrimes si bundlé
+   Synchronisation groupe : régler "URL de sync" dans Réglages (ressource JSON
+   unique acceptant GET et PUT : une ligne de table Supabase, un bin JSONBin…).
+   Manifest inline en data-URI : installable sans fichier séparé. Pour le
+   hors-ligne complet, ajouter un service worker dans la PWA hôte. */
+
+const STEPS = [
+  ["eligibility","Éligibilité vérifiée (nouveau client de la banque)",0],
+  ["link","Lien de parrainage récupéré du bon parrain",0],
+  ["kyc","Compte ouvert (KYC fait, ~30 min)",0],
+  ["deposit","Premier dépôt effectué",7],
+  ["conditions","Conditions de la prime tenues (paiements / virements)",90],
+  ["prime","Prime reçue ✅",90],
+  ["pot","Participation versée à la cagnotte",120],
+];
+const BANKS = [
+  {name:"BoursoBank",f:220,p:150,note:"Code promo souvent requis, dépôt 50-300 €"},
+  {name:"Hello bank!",f:300,p:120,note:"Doit être invité par un client existant"},
+  {name:"Fortuneo",f:130,p:110,note:"Conditions de revenus selon la carte"},
+  {name:"Monabanq",f:130,p:50,note:"Compte sans condition de revenus"},
+  {name:"Trade Republic",f:0,p:200,note:"Prime côté parrain uniquement"},
+];
+const KEY = "wep-primes-v1";
+const emptySteps = () => Object.fromEntries(STEPS.map(s=>[s[0],false]));
+const DEMO = [
+  {id:"m1",name:"Jean-Baptiste",bank:"Hello bank!",sponsor:"",steps:{...emptySteps(),eligibility:true,link:true,kyc:true,deposit:true}},
+  {id:"m2",name:"WEPien 2",bank:"BoursoBank",sponsor:"Jean-Baptiste",steps:{...emptySteps(),eligibility:true,link:true,kyc:true}},
+  {id:"m3",name:"WEPien 3",bank:"Fortuneo",sponsor:"Jean-Baptiste",steps:emptySteps()},
+];
+const defaultState = () => ({members:DEMO,wepDate:"",costPerHead:200,mode:"cagnotte",syncUrl:"",syncKey:"",lastSync:null});
+
+let state, tab="suivi";
+try{ state = JSON.parse(localStorage.getItem(KEY)) || defaultState(); }catch(e){ state = defaultState(); }
+const bankOf = n => BANKS.find(b=>b.name===n);
+const save = () => { try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){} };
+
+function setMember(id,patch){ state.members=state.members.map(m=>m.id===id?{...m,...patch}:m); save(); render(); }
+function toggleStep(id,sid){ state.members=state.members.map(m=>{ if(m.id!==id) return m; return {...m,steps:{...m.steps,[sid]:!m.steps[sid]}};}); save(); render(); }
+function addMember(){
+  const name=prompt("Prénom du WEPien ?"); if(!name) return;
+  state.members.push({id:"m"+Date.now(),name,bank:"",sponsor:"",steps:emptySteps()});
+  save(); render();
+}
+function removeMember(id){ state.members=state.members.filter(m=>m.id!==id); save(); render(); }
+
+async function pushSync(){
+  if(!state.syncUrl) return alert("Renseigne d'abord l'URL de sync dans Réglages.");
+  const opt={method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)};
+  if(state.syncKey){ opt.headers.apikey=state.syncKey; opt.headers.Authorization="Bearer "+state.syncKey; }
+  try{
+    await fetch(state.syncUrl,opt);
+    state.lastSync=new Date().toISOString(); save(); render();
+  }catch(e){ alert("Sync impossible : "+e.message); }
+}
+async function pullSync(){
+  if(!state.syncUrl) return alert("Renseigne d'abord l'URL de sync dans Réglages.");
+  const opt={headers:{}};
+  if(state.syncKey){ opt.headers.apikey=state.syncKey; opt.headers.Authorization="Bearer "+state.syncKey; }
+  try{
+    const r=await fetch(state.syncUrl,opt); const d=await r.json();
+    const next=d.members?d:(d.value||d.data||{});
+    if(next.members){ state=Object.assign(defaultState(),next); state.lastSync=new Date().toISOString(); save(); render(); }
+    else alert("Réponse inattendue du serveur.");
+  }catch(e){ alert("Sync impossible : "+e.message); }
+}
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function render(){
+  const primes=state.members.reduce((s,m)=>m.steps.prime&&bankOf(m.bank)?s+bankOf(m.bank).f:s,0);
+  const attendues=state.members.reduce((s,m)=>m.steps.kyc&&bankOf(m.bank)?s+bankOf(m.bank).f+bankOf(m.bank).p:s,0);
+  const target=state.members.length*state.costPerHead;
+  const pct=target?Math.min(100,Math.round(primes/target*100)):0;
+  document.getElementById("barL").textContent="Primes reçues : "+primes+" €";
+  document.getElementById("barR").textContent="Objectif : "+target+" € ("+state.members.length+" × "+state.costPerHead+" €)";
+  document.getElementById("fill").style.width=pct+"%";
+  const cd=document.getElementById("countdown");
+  if(state.wepDate){ const d=Math.ceil((new Date(state.wepDate)-Date.now())/864e5);
+    cd.innerHTML=d>0?"<b>J-"+d+"</b><span>avant le WEP</span>":"<b>C'est le WEP !</b><span>🎉</span>";
+  } else cd.innerHTML="";
+
+  const tabs=[["suivi","Mes démarches"],["groupe","Le groupe"],["banques","Les offres"],["reglages","Réglages"]];
+  document.getElementById("tabs").innerHTML=tabs.map(([id,l])=>
+    "<button class='"+(tab===id?"on":"")+"' onclick='WepPrimes.setTab(""+id+"")'>"+l+"</button>").join("");
+
+  const M=document.getElementById("main"); let h="";
+  if(tab==="suivi"){
+    h+="<p class='hint'>Coche chaque étape. Les délais sont les maximums habituels : dépôt sous ~7 j, conditions sur 1 à 3 mois. Ne ferme pas le compte avant la fin de la période imposée.</p>";
+    state.members.forEach(m=>{
+      const done=STEPS.filter(s=>m.steps[s[0]]).length;
+      h+="<div class='card'><h3>"+esc(m.name)+"<span class='hint'>"+done+"/"+STEPS.length+" étapes</span></h3>";
+      STEPS.forEach(([id,l,d])=>{
+        h+="<label class='row'><input type='checkbox' "+(m.steps[id]?"checked":"")+" onchange='WepPrimes.toggle(""+m.id+"",""+id+"")'>"
+          +"<span class='"+(m.steps[id]?"done":"")+"'>"+esc(l)+(d>0?" <span style='color:#94a3b8'>· sous "+d+" j max</span>":"")+"</span></label>";
+      });
+      h+="</div>";
+    });
+    h+="<button class='add' onclick='WepPrimes.add()'>+ Ajouter un WEPien</button>";
+  }
+  if(tab==="groupe"){
+    h+="<div class='card'><h3>Avancement du groupe<button class='btn' onclick='WepPrimes.add()'>+ Ajouter</button></h3><table><tr><th>WEPien</th><th>Banque</th><th>Parrain</th><th>Prime</th><th></th></tr>";
+    state.members.forEach(m=>{ const b=bankOf(m.bank);
+      h+="<tr><td><b>"+esc(m.name)+"</b></td><td><select onchange='WepPrimes.setMember(""+m.id+"","bank",this.value)'><option value=''>—</option>"
+        +BANKS.map(b2=>"<option "+(m.bank===b2.name?"selected":"")+">"+b2.name+"</option>").join("")+"</select></td><td><select onchange='WepPrimes.setMember(""+m.id+"","sponsor",this.value)'><option value=''>—</option>"
+        +state.members.map(o=>o.id!==m.id?"<option "+(m.sponsor===o.name?"selected":"")+">"+esc(o.name)+"</option>":"").join("")+"</select></td>"
+        +"<td style='text-align:right'><b>"+(m.steps.prime&&b?b.f+" €":"—")+"</b></td>"
+        +"<td><button class='del' onclick='WepPrimes.remove(""+m.id+"")'>✕</button></td></tr>";
+    });
+    h+="</table></div>";
+    h+="<div class='card'><h3>Cagnotte</h3><div class='kv'>"
+      +"<div style='background:#ecfdf5'><b style='color:#059669'>"+primes+" €</b><span class='hint'>reçues</span></div>"
+      +"<div style='background:#eef2ff'><b style='color:#4f46e5'>"+attendues+" €</b><span class='hint'>attendues</span></div>"
+      +"<div style='background:#fffbeb'><b style='color:#d97706'>"+target+" €</b><span class='hint'>coût du week-end</span></div></div>"
+      +"<p class='small'>Chaque parrain est généralement plafonné entre 5 et 15 filleuls/an : répartissez les parrains.</p></div>";
+    h+="<div class='card'><h3>Sync groupe <span><button class='sync "+(state.lastSync?"ok":"")+"' onclick='WepPrimes.pull()'>⬇ Récupérer</button> <button class='sync "+(state.lastSync?"ok":"")+"' onclick='WepPrimes.push()'>⬆ Partager</button></span></h3>"
+      +"<p class='small'>"+(state.lastSync?"Dernière sync : "+new Date(state.lastSync).toLocaleString("fr-FR"):"Pas encore synchronisé. Configure l'URL dans Réglages.")+"</p></div>";
+  }
+  if(tab==="banques"){
+    h+="<p class='hint'>Montants constatés en novembre 2026. Les offres évoluent : vérifie conditions et codes promo avant d'ouvrir.</p>";
+    BANKS.forEach(b=>{
+      h+="<div class='card'><h3 style='flex-wrap:wrap'>"+esc(b.name)+"<span><span class='chip f'>Filleul "+b.f+" €</span> <span class='chip p'>Parrain "+b.p+" €</span></span></h3><p class='small' style='margin:0'>"+esc(b.note)+"</p></div>";
+    });
+    h+="<div class='card warn'><h3>Règles d'or</h3><ul>"
+      +"<li>Ouvre ton compte toi-même : jamais personne ne le fait à ta place.</li>"
+      +"<li>Passe bien par le lien de ton parrain, sinon pas de prime.</li>"
+      +"<li>Ne ferme pas le compte avant la fin de la période imposée (retrait de prime possible).</li>"
+      +"<li>Parrainage gratuit entre proches uniquement : pas de revente de codes.</li>"
+      +"<li>Tu restes libre de ne pas participer.</li></ul></div>";
+  }
+  if(tab==="reglages"){
+    h+="<div class='card'>"
+      +"<label>Date du prochain WEP</label><input type='date' value='"+esc(state.wepDate)+"' onchange='WepPrimes.set("wepDate",this.value)'>"
+      +"<label>Coût par personne (€)</label><input type='number' value='"+state.costPerHead+"' onchange='WepPrimes.set("costPerHead",Number(this.value))'>"
+      +"<label>Que fait-on des primes ?</label><select onchange='WepPrimes.set("mode",this.value)'><option value='cagnotte' "+(state.mode==="cagnotte"?"selected":"")+">Cagnotte commune</option><option value='perso' "+(state.mode==="perso"?"selected":"")+">Chacun garde sa prime</option></select>"
+      +"<label>URL de sync groupe (ressource JSON, GET + PUT)</label><input type='url' placeholder='https://…' value='"+esc(state.syncUrl)+"' onchange='WepPrimes.set("syncUrl",this.value)' style='width:100%;max-width:none'>"
+      +"<label>Clé API (facultative, ex. clé anon Supabase)</label><input type='password' value='"+esc(state.syncKey)+"' onchange='WepPrimes.set("syncKey",this.value)' style='width:100%;max-width:none'>"
+      +"<p class='small'>L'URL désigne une seule ressource JSON partagée (une ligne de table Supabase, un bin JSONBin…). « Partager » envoie l'état du groupe, « Récupérer » le télécharge. Chaque téléphone garde aussi sa copie locale hors ligne.</p>"
+      +"<button class='del' style='margin-top:.8rem' onclick='WepPrimes.reset()'>Tout réinitialiser</button>"
+      +"</div>";
+    h+="<div class='card'><h3>Installer l'appli</h3><p class='small' style='margin:0'><b>Android/Chrome :</b> menu ⋮ → « Ajouter à l'écran d'accueil ».<br><b>iPhone/Safari :</b> Partager → « Sur l'écran d'accueil ».</p></div>";
+  }
+  M.innerHTML=h;
+}
+
+/* API publique : intégrable dans la PWA WEP */
+const WepPrimes = {
+  mount(el){ tab="suivi"; el.insertAdjacentHTML("beforeend","<nav id='tabs'></nav><main id='main'></main>"); render(); },
+  setTab(t){ tab=t; render(); },
+  get(){ return state; },
+  set(k,v){ state[k]=v; save(); render(); },
+  setMember(id,k,v){ setMember(id,{[k]:v}); },
+  toggle: toggleStep, add: addMember, remove: removeMember,
+  push: pushSync, pull: pullSync,
+  reset(){ if(confirm("Tout réinitialiser ?")){ state=defaultState(); save(); render(); } },
+};
+window.WepPrimes = WepPrimes;
+if (typeof module !== "undefined") module.exports = WepPrimes;
+
+render();
+</script>
+</body>
+</html>
