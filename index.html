@@ -171,7 +171,7 @@ try{
   if(!state.refLinks) state.refLinks = {};
 }catch(e){ state = defaultState(); }
 const bankOf = n => BANKS.find(b=>b.name===n);
-const save = () => { try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){} };
+const save = () => { try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){} schedulePush(); };
 
 /* ===== Tâches générées par affiliation ===== */
 const DAY = 864e5;
@@ -236,25 +236,42 @@ function addMember(){
 function setMember(mid,k,v){ state.members.forEach(m=>{ if(m.id===mid) m[k]=v; }); save(); render(); }
 function removeMember(id){ state.members=state.members.filter(m=>m.id!==id); save(); render(); }
 
-async function pushSync(){
-  if(!state.syncUrl) return alert("Renseigne d'abord l'URL de sync dans Réglages.");
-  const opt={method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)};
-  if(state.syncKey){ opt.headers.apikey=state.syncKey; opt.headers.Authorization="Bearer "+state.syncKey; }
-  try{
-    await fetch(state.syncUrl,opt);
-    state.lastSync=new Date().toISOString(); save(); render();
-  }catch(e){ alert("Sync impossible : "+e.message); }
+let pushTimer=null, syncing=false, syncingIn=false;
+function schedulePush(){
+  if(!state.syncUrl||!state.syncKey||syncingIn) return;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(()=>pushSync(true),4000);
 }
-async function pullSync(){
-  if(!state.syncUrl) return alert("Renseigne d'abord l'URL de sync dans Réglages.");
-  const opt={headers:{}};
-  if(state.syncKey){ opt.headers.apikey=state.syncKey; opt.headers.Authorization="Bearer "+state.syncKey; }
+async function pushSync(quiet){
+  if(!state.syncUrl||!state.syncKey){ if(!quiet) alert("Renseigne l'URL de sync et la clé dans Réglages."); return; }
+  if(syncing) return;
+  syncing=true;
+  const hdr={"Content-Type":"application/json","X-Master-Key":state.syncKey};
   try{
-    const r=await fetch(state.syncUrl,opt); const d=await r.json();
-    const next=d.members?d:(d.value||d.data||{});
-    if(next.members){ state=Object.assign(defaultState(),next); state.lastSync=new Date().toISOString(); save(); render(); }
-    else alert("Réponse inattendue du serveur.");
-  }catch(e){ alert("Sync impossible : "+e.message); }
+    const r=await fetch(state.syncUrl,{method:"PUT",headers:hdr,body:JSON.stringify(state)});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    syncingIn=true; state.lastSync=new Date().toISOString(); save(); syncingIn=false;
+    render();
+    if(quiet===false) alert("Données partagées au groupe ✅");
+  }catch(e){ if(!quiet) alert("Sync impossible : "+e.message); }
+  syncing=false;
+}
+async function pullSync(quiet){
+  if(!state.syncUrl||!state.syncKey){ if(!quiet) alert("Renseigne l'URL de sync et la clé dans Réglages."); return; }
+  const hdr={"X-Master-Key":state.syncKey};
+  try{
+    const r=await fetch(state.syncUrl,{headers:hdr});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    const next=d.record&&d.record.members?d.record:(d.members?d:(d.value||d.data||{}));
+    if(next.members){
+      syncingIn=true;
+      state=Object.assign(defaultState(),next);
+      state.lastSync=new Date().toISOString();
+      save(); syncingIn=false; render();
+      if(!quiet) alert("Données du groupe récupérées ✅");
+    } else if(!quiet) alert("Réponse inattendue du serveur.");
+  }catch(e){ if(!quiet) alert("Sync impossible : "+e.message); }
 }
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -378,9 +395,9 @@ function render(){
       +"<label>Date du prochain WEP</label><input type='date' value='"+esc(state.wepDate)+"' onchange='WepPrimes.set(&quot;wepDate&quot;,this.value)'>"
       +"<label>Coût par personne (€)</label><input type='number' value='"+state.costPerHead+"' onchange='WepPrimes.set(&quot;costPerHead&quot;,Number(this.value))'>"
       +"<label>Que fait-on des primes ?</label><select onchange='WepPrimes.set(&quot;mode&quot;,this.value)'><option value='cagnotte' "+(state.mode==="cagnotte"?"selected":"")+">Cagnotte commune</option><option value='perso' "+(state.mode==="perso"?"selected":"")+">Chacun garde sa prime</option></select>"
-      +"<label>URL de sync groupe (ressource JSON, GET + PUT)</label><input type='url' placeholder='https://…' value='"+esc(state.syncUrl)+"' onchange='WepPrimes.set(&quot;syncUrl&quot;,this.value)' style='width:100%;max-width:none'>"
-      +"<label>Clé API (facultative, ex. clé anon Supabase)</label><input type='password' value='"+esc(state.syncKey)+"' onchange='WepPrimes.set(&quot;syncKey&quot;,this.value)' style='width:100%;max-width:none'>"
-      +"<p class='small'>« Partager » envoie l'état du groupe, « Récupérer » le télécharge sur un autre téléphone. Chaque téléphone garde sa copie locale hors ligne.</p>"
+      +"<label>URL de sync groupe (ex. JSONBin : https://api.jsonbin.io/v3/b/TON_ID)</label><input type='url' placeholder='https://…' value='"+esc(state.syncUrl)+"' onchange='WepPrimes.set(&quot;syncUrl&quot;,this.value)' style='width:100%;max-width:none'>"
+      +"<label>Clé master JSONBin (X-Master-Key)</label><input type='password' value='"+esc(state.syncKey)+"' onchange='WepPrimes.set(&quot;syncKey&quot;,this.value)' style='width:100%;max-width:none'>"
+      +"<p class='small'>Une fois l'URL et la clé renseignées, tout est automatique : les données du groupe sont récupérées à l'ouverture de l'appli et chaque changement est partagé au groupe quelques secondes plus tard. « Récupérer » force un téléchargement immédiat. "+(state.lastSync?"Dernière sync : "+new Date(state.lastSync).toLocaleString("fr-FR"):"Pas encore synchronisé.")+"</p>"
       +"<button class='del' style='margin-top:.8rem' onclick='WepPrimes.reset()'>Tout réinitialiser</button>"
       +"</div>";
     h+="<div class='card'><h3>Sauvegarde des infos (les gars, affiliations, liens)</h3>"
@@ -439,13 +456,14 @@ const WepPrimes = {
     else fallback();
     alert("Lien copié ! Envoie-le au filleul 📩");
   },
-  push: pushSync, pull: pullSync,
+  push(){ return pushSync(false); }, pull(){ return pullSync(false); },
   reset(){ if(confirm("Tout réinitialiser ?")){ state=defaultState(); save(); render(); } },
 };
 window.WepPrimes = WepPrimes;
 if (typeof module !== "undefined") module.exports = WepPrimes;
 
 render();
+if(state.syncUrl) pullSync(true);
 </script>
 </body>
 </html>
