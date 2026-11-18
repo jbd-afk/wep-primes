@@ -37,6 +37,7 @@ input[type=checkbox]{max-width:none}
 input[type=url],input[type=password],input[type=date],input[type=number]{max-width:220px}
 .chip{display:inline-block;font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:99px;white-space:nowrap}
 .chip.f{background:#d1fae5;color:#047857}.chip.p{background:#e0e7ff;color:#4338ca}
+.chip.late{background:#fee2e2;color:#b91c1c}.chip.soon{background:#fef3c7;color:#b45309}.chip.ok{background:#d1fae5;color:#047857}
 .add{width:100%;padding:.65rem;border:2px dashed #a5b4fc;background:none;color:#4f46e5;border-radius:.75rem;font-size:.85rem;cursor:pointer;font-weight:600}
 .btn{background:#4f46e5;color:#fff;border:none;padding:.35rem .7rem;border-radius:.5rem;font-size:.75rem;cursor:pointer}
 .del{background:none;border:none;color:#cbd5e1;cursor:pointer;font-size:.85rem}
@@ -134,6 +135,20 @@ const BANKS = [
    fees:["Aucun frais de base mais risque de marché si l'argent reste investi","Retirer les sommes avant clôture : vente + virement vers la banque"],
    close:["Clôture possible après retrait complet des titres et espèces","Penser à l'imposition des éventuelles plus-values"]},
 ];
+const EXTRA_OFFERS = [
+  {name:"RED by SFR — forfait mobile",f:"10 €",p:"10 €",updated:"17/11/2026",
+   note:"Prime créditée sur la cagnotte RED (remise sur facture), versée environ 35 jours après activation de la ligne. Sans engagement."},
+  {name:"RED by SFR — box internet",f:"15 €",p:"15 €",updated:"17/11/2026",
+   note:"Même principe, à l'activation de la box."},
+  {name:"Bouygues Telecom",f:"30 €",p:"jusqu'à 70 €",updated:"17/11/2026",
+   note:"Montants variables selon les promos en cours : vérifier l'offre du moment avant de s'engager."},
+  {name:"Lebara Mobile",f:"-50 % pendant 2 mois",p:"jusqu'à 30 €",updated:"17/11/2026",
+   note:"Forfaits sans engagement, changement d'opérateur facile."},
+  {name:"Revolut / Lydia",f:"selon campagne",p:"10 à 100 €",updated:"17/11/2026",
+   note:"Néobanques : la prime varie beaucoup selon les campagnes et le niveau d'abonnement. À revérifier juste avant d'ouvrir."},
+  {name:"Cashback (iGraal, Joko, Poulpeo)",f:"—",p:"—",updated:"17/11/2026",
+   note:"Pas des primes directes mais un complément : chaque achat du WEP (billets, matériel) peut rapporter quelques %."},
+];
 const KEY = "wep-primes-v3";
 const defaultState = () => ({members:[
   {id:"m1",name:"Jean-Baptiste",accounts:[
@@ -143,7 +158,7 @@ const defaultState = () => ({members:[
     {id:"a2",bank:"Hello bank!",openDate:"2026-11-06",done:{},feesLast:""},
   ]},
   {id:"m3",name:"WEPien 3",accounts:[]},
-],wepDate:"",costPerHead:200,mode:"cagnotte",syncUrl:"",syncKey:"",lastSync:null,selBank:""});
+],wepDate:"",costPerHead:200,mode:"cagnotte",syncUrl:"",syncKey:"",refLinks:{},lastSync:null,selBank:""});
 
 let state, tab="suivi";
 try{
@@ -193,7 +208,7 @@ function taskStatus(t){
 function toggleTask(mid,aid,tid){
   state.members.forEach(m=>{ if(m.id!==mid) return;
     m.accounts.forEach(a=>{ if(a.id!==aid) return;
-      if(tid==="fees"){ a.feesLast = today(); }
+      if(tid==="fees"){ a.feesLast = taskStatus(accountTasks(m,a).find(x=>x.id==="fees"))==="late"||!a.feesLast ? today() : ""; if(!a.feesLast) a.feesLast=today(); }
       else a.done = {...a.done,[tid]:!a.done[tid]};
     });
   });
@@ -257,7 +272,7 @@ function render(){
   const tabs=[["suivi","Mes démarches"],["groupe","Le groupe"],["banques","Les offres"],["reglages","Réglages"]];
   const alerts = tasks.filter(x=>["late","soon"].includes(taskStatus(x.t)));
   document.getElementById("tabs").innerHTML=tabs.map(([id,l])=>
-    "<button class='"+(tab===id?"on":"")+"' onclick='WepPrimes.setTab(\""+id+"\")'>"+l+(id==="suivi"&&alerts.length?" ⏰ "+alerts.length:"")+"</button>").join("");
+    "<button class='"+(tab===id?"on":"")+"' onclick='WepPrimes.setTab(&quot;"+id+"&quot;)'>"+l+(id==="suivi"&&alerts.length?" ⏰ "+alerts.length:"")+"</button>").join("");
 
   const M=document.getElementById("main"); let h="";
   if(tab==="suivi"){
@@ -265,7 +280,7 @@ function render(){
       h+="<div class='card alert'><h3>⏰ Alertes ("+alerts.length+") — coche quand c'est fait pour la faire disparaître</h3>";
       alerts.sort((x,y)=>x.t.due<y.t.due?-1:1).forEach(x=>{
         const st=taskStatus(x.t);
-        h+="<label class='task'><input type='checkbox' onchange='WepPrimes.task(\""+x.m.id+"\",\""+x.a.id+"\",\""+x.t.id+"\")'>"
+        h+="<label class='task'><input type='checkbox' onchange='WepPrimes.task(&quot;"+x.m.id+"&quot;,&quot;"+x.a.id+"&quot;,&quot;"+x.t.id+"&quot;)'>"
           +"<span><b>"+esc(x.m.name)+" · "+esc(x.a.bank)+"</b> : "+esc(x.t.label)
           +" <span class='due "+st+"'>("+(st==="late"?"EN RETARD depuis le ":"prévu avant le ")+fmt(x.t.due)+")</span></span></label>";
       });
@@ -276,24 +291,24 @@ function render(){
       +"<li><b>Ne ferme jamais avant la fin de la période imposée</b> : la fiche de chaque offre (onglet Les offres) indique la durée.</li>"
       +"<li><b>Retire tout avant de clôturer</b> : solde à zéro, clôture écrite, vérifie qu'elle est effective.</li></ul></div>";
     state.members.forEach(m=>{
-      h+="<div class='card'><h3>"+esc(m.name)+"<button class='del' onclick='WepPrimes.remove(\""+m.id+"\")'>✕</button></h3>";
+      h+="<div class='card'><h3>"+esc(m.name)+"<button class='del' onclick='WepPrimes.remove(&quot;"+m.id+"&quot;)'>✕</button></h3>";
       if(m.accounts.length===0) h+="<p class='small' style='margin:0'>Aucune affiliation enregistrée.</p>";
       m.accounts.forEach(a=>{
         const b=bankOf(a.bank);
         const ts=accountTasks(m,a);
         const doneN=ts.filter(t=>t.done).length;
-        h+="<div class='acct'><h4>🏦 "+esc(a.bank)+" — ouvert le "+fmt(a.openDate)+"<span class='hint'>"+doneN+"/"+ts.length+" ✓<button class='del' onclick='WepPrimes.removeAccount(\""+m.id+"\",\""+a.id+"\")'>✕</button></span></h4>";
+        h+="<div class='acct'><h4>🏦 "+esc(a.bank)+" — ouvert le "+fmt(a.openDate)+"<span class='hint'>"+doneN+"/"+ts.length+" ✓<button class='del' onclick='WepPrimes.removeAccount(&quot;"+m.id+"&quot;,&quot;"+a.id+"&quot;)'>✕</button></span></h4>";
         ts.forEach(t=>{
           const st=taskStatus(t);
           const dueTxt = t.recurring ? "chaque 30 j" : (st==="late"?"EN RETARD depuis le ":st==="soon"?"prévu avant le ":"pour le ")+fmt(t.due);
-          h+="<label class='task'><input type='checkbox' "+(t.done?"checked":"")+" onchange='WepPrimes.task(\""+m.id+"\",\""+a.id+"\",\""+t.id+"\")'>"
+          h+="<label class='task'><input type='checkbox' "+(t.done?"checked":"")+" onchange='WepPrimes.task(&quot;"+m.id+"&quot;,&quot;"+a.id+"&quot;,&quot;"+t.id+"&quot;)'>"
             +"<span class='"+(t.done?"done":"")+"'>"+esc(t.label)+" <span class='due "+(st==="late"?"late":st==="soon"?"soon":"")+"'>"+dueTxt+"</span></span></label>";
         });
         h+="</div>";
       });
       h+="<div class='newacct'><select id='nb_"+m.id+"'><option value=''>Banque…</option>"+BANKS.map(b2=>"<option>"+b2.name+"</option>").join("")+"</select>"
         +"<input type='date' id='nd_"+m.id+"'>"
-        +"<button class='btn' onclick='WepPrimes.addAccount(\""+m.id+"\")'>+ Ajouter</button></div>";
+        +"<button class='btn' onclick='WepPrimes.addAccount(&quot;"+m.id+"&quot;)'>+ Ajouter</button></div>";
       h+="</div>";
     });
     h+="<button class='add' onclick='WepPrimes.add()'>+ Ajouter un WEPien</button>";
@@ -305,7 +320,7 @@ function render(){
       h+="<tr><td><b>"+esc(m.name)+"</b></td><td>"
         +(m.accounts.map(a=>esc(a.bank)+" <span class='updated'>("+fmt(a.openDate)+")</span>").join("<br>")||"—")
         +"</td><td style='text-align:right'><b>"+(got?got+" €":"—")+"</b></td>"
-        +"<td><button class='del' onclick='WepPrimes.remove(\""+m.id+"\")'>✕</button></td></tr>";
+        +"<td><button class='del' onclick='WepPrimes.remove(&quot;"+m.id+"&quot;)'>✕</button></td></tr>";
     });
     h+="</table><p class='small'>"+kycCount+" compte(s) ouvert(s) au total. Répartissez les parrains : chaque parrain est généralement plafonné entre 5 et 15 filleuls/an.</p></div>";
     h+="<div class='card'><h3>Cagnotte</h3><div class='kv'>"
@@ -319,15 +334,26 @@ function render(){
     h+="<p class='hint'><span class='bold'>Dernière actualisation des offres : "+esc(OFFERS_UPDATED)+"</span> — clique sur une offre pour ses conditions détaillées. Revérifie toujours la page officielle juste avant d'ouvrir.</p>";
     BANKS.forEach(b=>{
       const open = state.selBank===b.name;
-      h+="<div class='card offer "+(open?"open":"")+"' onclick='WepPrimes.select(\""+b.name+"\")'>"
+      h+="<div class='card offer "+(open?"open":"")+"' onclick='WepPrimes.select(&quot;"+b.name+"&quot;)'>"
         +"<h3 style='flex-wrap:wrap'>"+esc(b.name)+"<span style='white-space:nowrap'><span class='chip f'>Filleul "+b.f+" €</span> <span class='chip p'>Parrain "+b.p+" €</span> <span class='chev'>▸</span></span></h3>"
         +"<div class='updated'>Fiche vérifiée le "+esc(b.updated)+" · "+(open?"clique pour replier":"clique pour les conditions")+"</div>"
         +"<div class='detail'>"
         +"<h4 class='elig'>Éligibilité</h4>"+ul(b.eligibility)
         +"<h4 class='prime'>Pour débloquer la prime</h4>"+ul(b.prime)
+        +"<h4 style='color:#4f46e5'>Ton lien de parrainage (à copier/coller au filleul)</h4>"
+        +"<div style='display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin-top:.2rem'>"
+        +"<input type='url' placeholder='https://…' value='"+esc(state.refLinks[b.name]||"")+"' onchange='event.stopPropagation();WepPrimes.setRef(&quot;"+b.name+"&quot;,this.value)' style='flex:1;min-width:150px;max-width:none'>"
+        +(state.refLinks[b.name]?"<button class='btn' onclick='event.stopPropagation();WepPrimes.copyRef(&quot;"+b.name+"&quot;)'>Copier</button>":"")
+        +"</div><p class='small' style='margin-top:.3rem'>Renseigne ton lien perso une seule fois : chaque WEPien n'aura plus qu'à le copier avant d'ouvrir son compte.</p>"
         +"<h4 class='fees'>Frais à éviter</h4>"+ul(b.fees)
         +"<h4 class='close'>Avant de fermer le compte</h4>"+ul(b.close)
         +"</div></div>";
+    });
+    h+="<p class='hint' style='margin-top:.8rem'><span class='bold'>Autres gains hors banque</span> — montants indicatifs, à revérifier avant de s'engager.</p>";
+    EXTRA_OFFERS.forEach(b=>{
+      h+="<div class='card'><h3 style='font-size:.9rem'>"+esc(b.name)+"<span style='white-space:nowrap'><span class='chip f'>Filleul "+esc(b.f)+"</span> <span class='chip p'>Parrain "+esc(b.p)+"</span></span></h3>"
+        +"<p class='small' style='margin:0'>"+esc(b.note)+"</p>"
+        +"<div class='updated'>Vérifié le "+esc(b.updated)+"</div></div>";
     });
     h+="<div class='card warn'><h3>Règles d'or</h3><ul>"
       +"<li>Ouvre ton compte toi-même : jamais personne ne le fait à ta place.</li>"
@@ -338,11 +364,11 @@ function render(){
   }
   if(tab==="reglages"){
     h+="<div class='card'>"
-      +"<label>Date du prochain WEP</label><input type='date' value='"+esc(state.wepDate)+"' onchange='WepPrimes.set(\"wepDate\",this.value)'>"
-      +"<label>Coût par personne (€)</label><input type='number' value='"+state.costPerHead+"' onchange='WepPrimes.set(\"costPerHead\",Number(this.value))'>"
-      +"<label>Que fait-on des primes ?</label><select onchange='WepPrimes.set(\"mode\",this.value)'><option value='cagnotte' "+(state.mode==="cagnotte"?"selected":"")+">Cagnotte commune</option><option value='perso' "+(state.mode==="perso"?"selected":"")+">Chacun garde sa prime</option></select>"
-      +"<label>URL de sync groupe (ressource JSON, GET + PUT)</label><input type='url' placeholder='https://…' value='"+esc(state.syncUrl)+"' onchange='WepPrimes.set(\"syncUrl\",this.value)' style='width:100%;max-width:none'>"
-      +"<label>Clé API (facultative, ex. clé anon Supabase)</label><input type='password' value='"+esc(state.syncKey)+"' onchange='WepPrimes.set(\"syncKey\",this.value)' style='width:100%;max-width:none'>"
+      +"<label>Date du prochain WEP</label><input type='date' value='"+esc(state.wepDate)+"' onchange='WepPrimes.set(&quot;wepDate&quot;,this.value)'>"
+      +"<label>Coût par personne (€)</label><input type='number' value='"+state.costPerHead+"' onchange='WepPrimes.set(&quot;costPerHead&quot;,Number(this.value))'>"
+      +"<label>Que fait-on des primes ?</label><select onchange='WepPrimes.set(&quot;mode&quot;,this.value)'><option value='cagnotte' "+(state.mode==="cagnotte"?"selected":"")+">Cagnotte commune</option><option value='perso' "+(state.mode==="perso"?"selected":"")+">Chacun garde sa prime</option></select>"
+      +"<label>URL de sync groupe (ressource JSON, GET + PUT)</label><input type='url' placeholder='https://…' value='"+esc(state.syncUrl)+"' onchange='WepPrimes.set(&quot;syncUrl&quot;,this.value)' style='width:100%;max-width:none'>"
+      +"<label>Clé API (facultative, ex. clé anon Supabase)</label><input type='password' value='"+esc(state.syncKey)+"' onchange='WepPrimes.set(&quot;syncKey&quot;,this.value)' style='width:100%;max-width:none'>"
       +"<p class='small'>« Partager » envoie l'état du groupe, « Récupérer » le télécharge sur un autre téléphone. Chaque téléphone garde sa copie locale hors ligne.</p>"
       +"<button class='del' style='margin-top:.8rem' onclick='WepPrimes.reset()'>Tout réinitialiser</button>"
       +"</div>";
@@ -364,6 +390,15 @@ const WepPrimes = {
   },
   task: toggleTask, add: addMember, remove: removeMember,
   removeAccount: removeAccount, select(n){ state.selBank=state.selBank===n?"":n; save(); render(); },
+  setRef(name,v){ state.refLinks={...state.refLinks,[name]:v.trim()}; save(); render(); },
+  copyRef(name){
+    const url=(state.refLinks||{})[name]||"";
+    if(!url) return;
+    const fallback=()=>{ if(window.prompt) window.prompt("Copie ce lien :",url); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(url).catch(fallback); }
+    else fallback();
+    alert("Lien copié ! Envoie-le au filleul 📩");
+  },
   push: pushSync, pull: pullSync,
   reset(){ if(confirm("Tout réinitialiser ?")){ state=defaultState(); save(); render(); } },
 };
