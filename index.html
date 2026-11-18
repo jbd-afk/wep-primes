@@ -266,7 +266,9 @@ async function pullSync(quiet){
     const next=d.record&&d.record.members?d.record:(d.members?d:(d.value||d.data||{}));
     if(next.members){
       syncingIn=true;
+      const myUrl=state.syncUrl, myKey=state.syncKey;
       state=Object.assign(defaultState(),next);
+      state.syncUrl=next.syncUrl||myUrl; state.syncKey=next.syncKey||myKey;
       state.lastSync=new Date().toISOString();
       save(); syncingIn=false; render();
       if(!quiet) alert("Données du groupe récupérées ✅");
@@ -398,6 +400,7 @@ function render(){
       +"<label>URL de sync groupe (ex. JSONBin : https://api.jsonbin.io/v3/b/TON_ID)</label><input type='url' placeholder='https://…' value='"+esc(state.syncUrl)+"' onchange='WepPrimes.set(&quot;syncUrl&quot;,this.value)' style='width:100%;max-width:none'>"
       +"<label>Clé master JSONBin (X-Master-Key)</label><input type='password' value='"+esc(state.syncKey)+"' onchange='WepPrimes.set(&quot;syncKey&quot;,this.value)' style='width:100%;max-width:none'>"
       +"<p class='small'>Une fois l'URL et la clé renseignées, tout est automatique : les données du groupe sont récupérées à l'ouverture de l'appli et chaque changement est partagé au groupe quelques secondes plus tard. « Récupérer » force un téléchargement immédiat. "+(state.lastSync?"Dernière sync : "+new Date(state.lastSync).toLocaleString("fr-FR"):"Pas encore synchronisé.")+"</p>"
+      +"<div style='margin-top:.5rem'><button class='btn' onclick='WepPrimes.invite()'>🔗 Lien d'invitation (configure les applis des gars en 1 clic)</button></div>"
       +"<button class='del' style='margin-top:.8rem' onclick='WepPrimes.reset()'>Tout réinitialiser</button>"
       +"</div>";
     h+="<div class='card'><h3>Sauvegarde des infos (les gars, affiliations, liens)</h3>"
@@ -456,13 +459,36 @@ const WepPrimes = {
     else fallback();
     alert("Lien copié ! Envoie-le au filleul 📩");
   },
-  push(){ return pushSync(false); }, pull(){ return pullSync(false); },
+  push(){ return pushSync(false); }, pull(){ return pullSync(false); }, invite: inviteLink,
   reset(){ if(confirm("Tout réinitialiser ?")){ state=defaultState(); save(); render(); } },
 };
 window.WepPrimes = WepPrimes;
 if (typeof module !== "undefined") module.exports = WepPrimes;
 
 render();
+/* ===== Lien d'invitation : #bin=ID&key=CLE configure l'appli en 1 clic ===== */
+function inviteLink(){
+  if(!state.syncUrl||!state.syncKey) return alert("Renseigne d'abord l'URL et la clé de sync.");
+  const m=state.syncUrl.match(new RegExp("/b/([^/?]+)"));
+  if(!m) return alert("URL de sync non reconnue : le lien spécial ne fonctionne qu'avec JSONBin.");
+  const link=location.origin+location.pathname+"#bin="+m[1]+"&key="+encodeURIComponent(state.syncKey);
+  const fallback=()=>{ if(window.prompt) window.prompt("Copie ce lien :",link); };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).catch(fallback); }
+  else fallback();
+  alert("Lien d'invitation copié ! Envoie-le aux gars : à la première ouverture, l'appli se configure toute seule, ils n'ont rien à taper.");
+}
+try{
+  const h=(typeof location!=="undefined"&&location.hash)||"";
+  const mBin=h.match(/bin=([^&]+)/), mKey=h.match(/key=([^&]+)/);
+  if(mBin&&mKey){
+    state.syncUrl="https://api.jsonbin.io/v3/b/"+decodeURIComponent(mBin[1]);
+    state.syncKey=decodeURIComponent(mKey[1]);
+    save();
+    alert("Appli configurée ✅ La sync groupe est active, tu n'as rien à taper.");
+    if(typeof history!=="undefined"&&history.replaceState) history.replaceState(null,"",location.pathname);
+    render();
+  }
+}catch(e){}
 if(state.syncUrl) pullSync(true);
 </script>
 </body>
