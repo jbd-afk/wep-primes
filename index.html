@@ -163,7 +163,8 @@ const defaultState = () => ({members:[
 let state, tab="suivi";
 try{
   const raw = JSON.parse(localStorage.getItem(KEY));
-  state = raw && raw.members ? raw : defaultState();
+  state = raw && raw.members ? Object.assign(defaultState(), raw) : defaultState();
+  if(!state.refLinks) state.refLinks = {};
 }catch(e){ state = defaultState(); }
 const bankOf = n => BANKS.find(b=>b.name===n);
 const save = () => { try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){} };
@@ -342,8 +343,8 @@ function render(){
         +"<h4 class='prime'>Pour débloquer la prime</h4>"+ul(b.prime)
         +"<h4 style='color:#4f46e5'>Ton lien de parrainage (à copier/coller au filleul)</h4>"
         +"<div style='display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin-top:.2rem'>"
-        +"<input type='url' placeholder='https://…' value='"+esc(state.refLinks[b.name]||"")+"' onchange='event.stopPropagation();WepPrimes.setRef(&quot;"+b.name+"&quot;,this.value)' style='flex:1;min-width:150px;max-width:none'>"
-        +(state.refLinks[b.name]?"<button class='btn' onclick='event.stopPropagation();WepPrimes.copyRef(&quot;"+b.name+"&quot;)'>Copier</button>":"")
+        +"<input type='url' placeholder='https://…' value='"+esc((state.refLinks||{})[b.name]||"")+"' onchange='event.stopPropagation();WepPrimes.setRef(&quot;"+b.name+"&quot;,this.value)' style='flex:1;min-width:150px;max-width:none'>"
+        +(state.refLinks&&state.refLinks[b.name]?"<button class='btn' onclick='event.stopPropagation();WepPrimes.copyRef(&quot;"+b.name+"&quot;)'>Copier</button>":"")
         +"</div><p class='small' style='margin-top:.3rem'>Renseigne ton lien perso une seule fois : chaque WEPien n'aura plus qu'à le copier avant d'ouvrir son compte.</p>"
         +"<h4 class='fees'>Frais à éviter</h4>"+ul(b.fees)
         +"<h4 class='close'>Avant de fermer le compte</h4>"+ul(b.close)
